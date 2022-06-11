@@ -3,9 +3,11 @@
 namespace DTApi\Http\Controllers;
 
 use DTApi\Models\Job;
+
 use DTApi\Http\Requests;
 use DTApi\Models\Distance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use DTApi\Repository\BookingRepository;
 
 /**
@@ -38,14 +40,15 @@ class BookingController extends Controller
         if($user_id = $request->get('user_id')) {
 
             $response = $this->repository->getUsersJobs($user_id);
+            return response()->json([$response,'message'=>'Records/Jobs found.'],200);  
 
         }
         elseif($request->__authenticatedUser->user_type == env('ADMIN_ROLE_ID') || $request->__authenticatedUser->user_type == env('SUPERADMIN_ROLE_ID'))
         {
             $response = $this->repository->getAll($request);
+            return response()->json([$response,'message'=>'Records/Jobs found.'],200);  
         }
-
-        return response($response);
+        return response()->json(['message'=>'Not a valid user id or type / User not found.'], 404);
     }
 
     /**
@@ -56,7 +59,11 @@ class BookingController extends Controller
     {
         $job = $this->repository->with('translatorJobRel.user')->find($id);
 
-        return response($job);
+        if(isset($job)) {
+            return response()->json([$job,'message'=>'Record/Job found.'],200);  
+        } else {
+            return response()->json(['message'=>'Record/Job not found.'], 404);
+        }
     }
 
     /**
@@ -69,8 +76,12 @@ class BookingController extends Controller
 
         $response = $this->repository->store($request->__authenticatedUser, $data);
 
-        return response($response);
-
+        if($response['status'] == "fail") {
+            return response()->json([$response,'message'=>'Error in storing the job/record.'], 422);
+            //422	Unprocessable Entity (validation failed)
+        } else {
+            return response()->json([$response,'message'=>'Record/Job stored or saved successfully.'],200);
+        }
     }
 
     /**
@@ -82,7 +93,9 @@ class BookingController extends Controller
     {
         $data = $request->all();
         $cuser = $request->__authenticatedUser;
-        $response = $this->repository->updateJob($id, array_except($data, ['_token', 'submit']), $cuser);
+        $validate_data = array_except($data, ['_token', 'submit']);
+        //$response = $this->repository->updateJob($id, array_except($data, ['_token', 'submit']), $cuser);
+        $response = $this->repository->updateJob($id, $validate_data, $cuser);
 
         return response($response);
     }
